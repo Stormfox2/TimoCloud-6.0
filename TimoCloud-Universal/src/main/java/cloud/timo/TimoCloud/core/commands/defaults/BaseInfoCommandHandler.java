@@ -1,4 +1,4 @@
-package cloud.timo.TimoCloud.core.commands;
+package cloud.timo.TimoCloud.core.commands.defaults;
 
 import cloud.timo.TimoCloud.api.core.commands.CommandHandler;
 import cloud.timo.TimoCloud.api.core.commands.CommandSender;

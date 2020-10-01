@@ -21,11 +21,11 @@ public class CommandManagerTest {
     @Mock
     private CoreInstanceManager serverManager; // Our ServerManager mock
 
-    private CommandManager commandManager; // Our CommandManager instance we want to test
+    private CommandManagerOld commandManager; // Our CommandManager instance we want to test
 
     @Before
     public void setUp() {
-        commandManager = new CommandManager(); // Create instance
+        commandManager = new CommandManagerOld(); // Create instance
         PowerMockito.mockStatic(TimoCloudCore.class); // Mock TimoCloudCore statically
         when(TimoCloudCore.getInstance()).thenReturn(timoCloudCore); // Return our mocked instance
         when(timoCloudCore.getInstanceManager()).thenReturn(serverManager); // Return mocked ServerManager

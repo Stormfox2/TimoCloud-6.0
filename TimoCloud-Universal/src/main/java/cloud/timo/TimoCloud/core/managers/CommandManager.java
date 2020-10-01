@@ -1,106 +1,142 @@
 package cloud.timo.TimoCloud.core.managers;
 
-import cloud.timo.TimoCloud.api.core.commands.CommandHandler;
-import cloud.timo.TimoCloud.api.core.commands.CommandSender;
-import cloud.timo.TimoCloud.common.utils.ChatColorUtil;
 import cloud.timo.TimoCloud.core.TimoCloudCore;
-import cloud.timo.TimoCloud.core.commands.*;
+import cloud.timo.TimoCloud.core.commands.Command;
+import cloud.timo.TimoCloud.core.commands.TimoCloudCommandRegistry;
+import cloud.timo.TimoCloud.core.commands.defaults.AddBaseCommand;
+import org.jline.builtins.Builtins;
+import org.jline.builtins.Completers;
+import org.jline.reader.LineReader;
+import org.jline.reader.LineReaderBuilder;
+import org.jline.reader.ParsedLine;
+import org.jline.reader.Parser;
+import org.jline.reader.impl.DefaultParser;
+import org.jline.reader.impl.completer.AggregateCompleter;
+import org.jline.reader.impl.completer.NullCompleter;
+import org.jline.terminal.Terminal;
+import org.jline.terminal.TerminalBuilder;
 
-import java.util.Arrays;
+import java.io.IOException;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 public class CommandManager {
+    private final Map<String, Command> commandList;
 
-    private Map<String, CommandHandler> commandHandlers;
+    private final TimoCloudCommandRegistry commandRegistry;
+    private final ScheduledThreadPoolExecutor scheduledExecutorService = new ScheduledThreadPoolExecutor(1);
+    private org.jline.reader.LineReader lineReader;
+    private Terminal terminal = null;
+    private Completers.Completer completer;
 
     public CommandManager() {
-        commandHandlers = new HashMap<>();
-        registerDefaultCommands();
+        commandList = new HashMap<>();
+        commandRegistry = new TimoCloudCommandRegistry();
     }
 
-    public void registerCommandHandler(String command, CommandHandler commandHandler) {
-        commandHandlers.put(command.toLowerCase(), commandHandler);
+    public void load() {
+        addBasicCommands();
+        startThread();
     }
 
-    public void unregisterCommandHandler(String command) {
-        commandHandlers.remove(command.toLowerCase());
+    public void addCommand(Command command) {
+        commandList.put(command.getName(), command);
+        commandRegistry.addCommand(command);
     }
 
-    private CommandHandler getHandlerByCommand(String command) {
-        return commandHandlers.get(command.toLowerCase());
-    }
+    public boolean reload() {
+        Builtins builtins = new Builtins(Paths.get(""), null, null);
+        builtins.rename(Builtins.Command.TTOP, "top");
 
-    private void registerCommand(CommandHandler commandHandler, String ... commands) {
-        for (String command : commands) {
-            registerCommandHandler(command, commandHandler);
-        }
-    }
+        AggregateCompleter systemCompleter = new AggregateCompleter(CommandRegistry.compileCompleters(/*builtins,*/ commandRegistry)
+                , completer != null ? completer : NullCompleter.INSTANCE);
 
-    private void registerDefaultCommands() {
-        registerCommand(new BaseInfoCommandHandler(), "baseinfo", "base");
-        registerCommand(new CreateGroupCommandHandler(), "creategroup", "addgroup");
-        registerCommand(new DebugCommandHandler(), "debug");
-        registerCommand(new DeleteGroupCommand(), "deletegroup", "removegroup");
-        registerCommand(new EditGroupCommandHandler(), "editgroup");
-        registerCommand(new GroupInfoCommandHandler(), "groupinfo", "group");
-        registerCommand(new HelpCommandHandler(), "help", "?");
-        registerCommand(new ListBasesCommand(), "listbases", "bases", "showbases");
-        registerCommand(new ListGroupsCommandHandler(), "listgroups", "groups", "showgroups");
-        registerCommand(new ReloadCommandHandler(), "reload");
-        registerCommand(new ReloadPluginsCommandHandler(), "reloadPlugins");
-        registerCommand(new RestartCommandHandler(), "stop", "restart", "restartgroup");
-        registerCommand(new SendCommandCommandHandler(), "sendcommand", "executecommand", "send");
-        registerCommand(new ShutdownCommandHandler(), "shutdown", "end", "quit", "exit");
-        registerCommand(new VersionCommandHandler(), "version", "info");
-        registerCommand(new AddBaseCommandHandler(), "addbase");
-    }
-
-    public void sendHelp(CommandSender sender) {
-        getHandlerByCommand("help").onCommand("help", sender);
-    }
-
-    private void sendMessage(String message) {
-        TimoCloudCore.getInstance().info(ChatColorUtil.toLegacyText(message));
-    }
-
-    private void sendError(String message) {
-        TimoCloudCore.getInstance().severe(message);
-    }
-
-    public void onCommand(String command) {
-        onCommand(command, new CommandSender() {
-            @Override
-            public void sendMessage(String message) {
-                CommandManager.this.sendMessage(message + "&r");
-            }
-
-            @Override
-            public void sendError(String message) {
-                CommandManager.this.sendError(message);
-            }
-        });
-    }
-
-    public void onCommand(String command, CommandSender sender) {
-        String[] split = command.split(" ");
-        if (split.length < 1) return;
-        String cmd = split[0];
-        String[] args = split.length == 1 ? new String[0] : Arrays.copyOfRange(split, 1, split.length);
-        onCommand(cmd, sender, args);
-    }
-
-    public void onCommand(String command, CommandSender commandSender, String ... args) {
+        TerminalBuilder builder = TerminalBuilder.builder();
         try {
-            CommandHandler handler = getHandlerByCommand(command);
-            if (handler == null) handler = getHandlerByCommand("help");
-
-            handler.onCommand(command, commandSender, args);
-        } catch (Exception e) {
-            commandSender.sendError("An error occurred while executing the command. Please look up in the console for more details.");
-            TimoCloudCore.getInstance().severe(e);
-            sendHelp(commandSender);
+            terminal = builder.build();
+        } catch (IOException e) {
+            TimoCloudCore.getInstance().getLogger().severe(e.getMessage());
+            TimoCloudCore.getInstance().getLogger().severe(e.getCause().toString());
+            return false;
         }
+
+        Parser mainParser = new DefaultParser();
+
+
+        lineReader = LineReaderBuilder.builder().terminal(terminal)
+                .completer(systemCompleter)
+                .parser(mainParser)
+                .variable(org.jline.reader.LineReader.SECONDARY_PROMPT_PATTERN, "%M%P > ")
+                .variable(org.jline.reader.LineReader.INDENTATION, 2)
+                .option(org.jline.reader.LineReader.Option.INSERT_BRACKET, true)
+                .option(org.jline.reader.LineReader.Option.EMPTY_WORD_OPTIONS, false)
+                .build();
+        return true;
     }
+
+    public CommandManager removeCommand(Command command) {
+        commandList.remove(command.getName());
+        return this;
+    }
+
+    private void addBasicCommands() {
+        addCommand(new AddBaseCommand());
+    }
+
+    private void startThread() {
+        String prompt = "> ";
+        reload();
+
+        scheduledExecutorService.scheduleAtFixedRate(() -> {
+            String line = lineReader.readLine(prompt);
+            line = line.trim();
+
+            ParsedLine pl = lineReader.getParser().parse(line, 0);
+            String[] argv = pl.words().subList(1, pl.words().size()).toArray(new String[0]);
+            String cmd = Parser.getCommand(pl.word());
+
+            if (commandRegistry.hasCommand(cmd))
+                commandRegistry.execute(cmd, argv);
+        }, 1, 1, TimeUnit.SECONDS);
+    }
+
+    public void printLog(String string) {
+        if (lineReader != null && lineReader.isReading()) {
+            //Redraw prompt
+            lineReader.callWidget(org.jline.reader.LineReader.CLEAR);
+            terminal.writer().print(string);
+            lineReader.callWidget(org.jline.reader.LineReader.REDRAW_LINE);
+            lineReader.callWidget(LineReader.REDISPLAY);
+            lineReader.getTerminal().flush();
+        } else {
+            // No need to redraw prompt
+            terminal.writer().println(string);
+        }
+
+        terminal.writer().flush();
+        terminal.flush();
+
+
+    }
+
+    public TimoCloudCommandRegistry getCommandRegistry() {
+        return commandRegistry;
+    }
+
+    public Command getCommand(String name) {
+        return commandList.get(name);
+    }
+
+    public Map<String, Command> getCommands() {
+        return commandList;
+    }
+
+    public void stop() {
+        scheduledExecutorService.shutdownNow();
+    }
+
 
 }

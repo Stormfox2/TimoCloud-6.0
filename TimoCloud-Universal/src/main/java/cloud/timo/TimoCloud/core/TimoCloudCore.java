@@ -18,25 +18,15 @@ import cloud.timo.TimoCloud.core.plugins.PluginManager;
 import cloud.timo.TimoCloud.core.sockets.CoreSocketServer;
 import cloud.timo.TimoCloud.core.sockets.CoreSocketServerHandler;
 import cloud.timo.TimoCloud.core.sockets.CoreStringHandler;
-import cloud.timo.TimoCloud.core.utils.completers.*;
 import io.netty.channel.Channel;
-import org.jline.builtins.Completers;
-import org.jline.reader.*;
-import org.jline.reader.impl.DefaultParser;
-import org.jline.reader.impl.completer.AggregateCompleter;
-import org.jline.terminal.Terminal;
-import org.jline.terminal.TerminalBuilder;
+import org.jline.reader.LineReader;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.charset.Charset;
-import java.util.Collections;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.*;
-
-import static org.jline.builtins.Completers.TreeCompleter.node;
 
 public class TimoCloudCore implements TimoCloudModule {
 
@@ -44,7 +34,7 @@ public class TimoCloudCore implements TimoCloudModule {
     private boolean shuttingDown;
     private OptionSet options;
     private CoreFileManager fileManager;
-    private SimpleFormatter simpleFormatter = new SimpleFormatter();
+    private final SimpleFormatter simpleFormatter = new SimpleFormatter();
     private Logger logger;
     private CoreSocketServer socketServer;
     private CoreSocketServerHandler socketServerHandler;
@@ -61,7 +51,7 @@ public class TimoCloudCore implements TimoCloudModule {
     private CorePublicKeyManager corePublicKeyManager;
 
     private boolean running;
-    private boolean waitingForCommand = false;
+    private final boolean waitingForCommand = false;
     private LineReader reader;
 
     private static final String ANSI_RESET = "\u001B[0m";
@@ -139,59 +129,62 @@ public class TimoCloudCore implements TimoCloudModule {
         for (TimoCloudPlugin plugin : getPluginManager().getPlugins()) {
             plugin.onUnload();
         }
+        commandManager.stop();
         channel.close();
     }
 
-    public void waitForCommands() throws IOException {
-        TerminalBuilder builder = TerminalBuilder.builder();
-        builder.encoding(Charset.defaultCharset());
-        builder.system(true);
-        Terminal terminal = builder.build();
-        Completer completer = new Completers.TreeCompleter(
-                node("help"),
-                node("version"),
-                node("reload"),
-                node("addgroup",
-                        node("server"),
-                        node("proxy")),
-                node("removegroup"),
-                node("editgroup", new Completers.TreeCompleter.Node(new AggregateCompleter(new ServerGroupNameCompleter(), new ProxyGroupNameCompleter()), Collections.emptyList())),
-                node("restart", new Completers.TreeCompleter.Node(new AggregateCompleter(new ServerGroupNameCompleter(), new ProxyGroupNameCompleter(), new ServerNameCompleter(), new ProxyNameCompleter()), Collections.emptyList())),
-                node("listgroups"),
-                node("groupinfo", new Completers.TreeCompleter.Node(new AggregateCompleter(new ServerGroupNameCompleter(), new ProxyGroupNameCompleter()), Collections.emptyList())),
-                node("listgroups"),
-                node("baseinfo", new Completers.TreeCompleter.Node(new BaseNameCompleter(), Collections.emptyList())),
-                node("listbases"),
-                node("sendcommand", new Completers.TreeCompleter.Node(new AggregateCompleter(new ServerGroupNameCompleter(), new ProxyGroupNameCompleter(), new ServerNameCompleter(), new ProxyNameCompleter()), Collections.emptyList())),
-                node("addbase")
-        );
-        Parser parser = new DefaultParser();
-        String prompt = "> ";
-        String rightPrompt = null;
-        LineReader reader = LineReaderBuilder.builder()
-                .terminal(terminal)
-                .completer(completer)
-                .parser(parser)
-                .build();
-        this.reader = reader;
-        while (running) {
-            waitingForCommand = true;
-            String line = null;
-            try {
-                line = reader.readLine(prompt, rightPrompt, (MaskingCallback) null, null);
-            } catch (UserInterruptException e) {
-                System.exit(0);
-            } catch (EndOfFileException ignore) {
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-            if (line == null) continue;
-            waitingForCommand = false;
-            line = line.trim();
-            if (line.isEmpty()) continue;
-            getCommandManager().onCommand(line);
-        }
-    }
+    /**
+     * public void waitForCommands() throws IOException {
+     * TerminalBuilder builder = TerminalBuilder.builder();
+     * builder.encoding(Charset.defaultCharset());
+     * builder.system(true);
+     * Terminal terminal = builder.build();
+     * Completer completer = new Completers.TreeCompleter(
+     * node("help"),
+     * node("version"),
+     * node("reload"),
+     * node("addgroup",
+     * node("server"),
+     * node("proxy")),
+     * node("removegroup"),
+     * node("editgroup", new Completers.TreeCompleter.Node(new AggregateCompleter(new ServerGroupNameCompleter(), new ProxyGroupNameCompleter()), Collections.emptyList())),
+     * node("restart", new Completers.TreeCompleter.Node(new AggregateCompleter(new ServerGroupNameCompleter(), new ProxyGroupNameCompleter(), new ServerNameCompleter(), new ProxyNameCompleter()), Collections.emptyList())),
+     * node("listgroups"),
+     * node("groupinfo", new Completers.TreeCompleter.Node(new AggregateCompleter(new ServerGroupNameCompleter(), new ProxyGroupNameCompleter()), Collections.emptyList())),
+     * node("listgroups"),
+     * node("baseinfo", new Completers.TreeCompleter.Node(new BaseNameCompleter(), Collections.emptyList())),
+     * node("listbases"),
+     * node("sendcommand", new Completers.TreeCompleter.Node(new AggregateCompleter(new ServerGroupNameCompleter(), new ProxyGroupNameCompleter(), new ServerNameCompleter(), new ProxyNameCompleter()), Collections.emptyList())),
+     * node("addbase")
+     * );
+     * Parser parser = new DefaultParser();
+     * String prompt = "> ";
+     * String rightPrompt = null;
+     * LineReader reader = LineReaderBuilder.builder()
+     * .terminal(terminal)
+     * .completer(completer)
+     * .parser(parser)
+     * .build();
+     * this.reader = reader;
+     * while (running) {
+     * waitingForCommand = true;
+     * String line = null;
+     * try {
+     * line = reader.readLine(prompt, rightPrompt, (MaskingCallback) null, null);
+     * } catch (UserInterruptException e) {
+     * System.exit(0);
+     * } catch (EndOfFileException ignore) {
+     * } catch (Exception e) {
+     * e.printStackTrace();
+     * }
+     * if (line == null) continue;
+     * waitingForCommand = false;
+     * line = line.trim();
+     * if (line.isEmpty()) continue;
+     * getCommandManager().onCommand(line);
+     * }
+     * }
+     */
 
     private void makeInstances() throws Exception {
         instance = this;
