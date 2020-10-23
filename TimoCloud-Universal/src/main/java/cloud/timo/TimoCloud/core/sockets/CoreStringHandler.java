@@ -69,7 +69,7 @@ public class CoreStringHandler extends BasicStringHandler {
 
 
     private void addBasicHandlers() {
-        addHandler(new BaseProxyLogEntryHandler());
+        addHandler(new ProxyLogEntryHandler());
         addHandler(new CoreApiDataHandler());
         addHandler(new CoreBaseCheckDeletableHandler());
         addHandler(new CoreBaseHandshakeHandler());
