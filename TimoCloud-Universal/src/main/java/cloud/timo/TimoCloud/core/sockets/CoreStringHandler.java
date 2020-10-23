@@ -37,6 +37,10 @@ public class CoreStringHandler extends BasicStringHandler {
 
         boolean handshake = false;
 
+        if (type == MessageType.BASE_RESOURCES) {
+            target.sendMessage(message);
+        }
+
         try {
             for (MessageHandler messageHandler : getMessageHandlers(type)) {
                 if (messageHandler.isHandShake()) {

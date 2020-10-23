@@ -9,8 +9,8 @@ import cloud.timo.TimoCloud.core.objects.Server;
 import cloud.timo.TimoCloud.core.sockets.Communicatable;
 import io.netty.channel.Channel;
 
-public class BaseProxyLogEntryHandler extends MessageHandler {
-    public BaseProxyLogEntryHandler() {
+public class ProxyLogEntryHandler extends MessageHandler {
+    public ProxyLogEntryHandler() {
         super(MessageType.PROXY_LOG_ENTRY);
     }
 
