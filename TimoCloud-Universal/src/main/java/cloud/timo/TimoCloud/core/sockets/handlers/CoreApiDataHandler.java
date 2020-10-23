@@ -15,7 +15,7 @@ import java.util.Set;
 
 public class CoreApiDataHandler extends MessageHandler {
     public CoreApiDataHandler() {
-        super(MessageType.API_DATA);
+        super(MessageType.GET_API_DATA);
     }
 
     @Override

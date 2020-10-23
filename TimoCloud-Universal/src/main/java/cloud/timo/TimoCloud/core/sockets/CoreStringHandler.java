@@ -5,7 +5,6 @@ import cloud.timo.TimoCloud.common.protocol.MessageType;
 import cloud.timo.TimoCloud.common.sockets.BasicStringHandler;
 import cloud.timo.TimoCloud.common.sockets.MessageHandler;
 import cloud.timo.TimoCloud.common.sockets.MessageTypeNotFoundExcpetion;
-import cloud.timo.TimoCloud.cord.TimoCloudCord;
 import cloud.timo.TimoCloud.core.TimoCloudCore;
 import cloud.timo.TimoCloud.core.objects.Proxy;
 import cloud.timo.TimoCloud.core.objects.Server;
@@ -52,7 +51,7 @@ public class CoreStringHandler extends BasicStringHandler {
                 }
             }
         } catch (MessageTypeNotFoundExcpetion messageTypeNotFoundExcpetion) {
-            TimoCloudCord.getInstance().severe(messageTypeNotFoundExcpetion.getMessage());
+            TimoCloudCore.getInstance().severe(messageTypeNotFoundExcpetion.getMessage());
         }
 
         // No Handshake, so we have to check if the channel is registered
