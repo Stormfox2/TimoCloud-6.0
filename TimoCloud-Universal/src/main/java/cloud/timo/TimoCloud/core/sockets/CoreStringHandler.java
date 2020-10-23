@@ -39,6 +39,7 @@ public class CoreStringHandler extends BasicStringHandler {
 
         if (type == MessageType.BASE_RESOURCES) {
             target.onMessage(message, sender);
+            return;
         }
 
         try {
